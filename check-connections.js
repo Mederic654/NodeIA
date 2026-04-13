@@ -1,19 +1,108 @@
 import 'dotenv/config';
 
-const PROMPT = "test connection";
+const PROMPT = "Donne-moi la capitale de la France en un mot.";
 
 console.log("MISTRAL_API_KEY présente ? :", !!process.env.MISTRAL_API_KEY);
 console.log("GROQ_API_KEY ? :", !!process.env.GROQ_API_KEY);
 console.log("HF_API_KEY ? :", !!process.env.HUGGINGFACE_API_KEY);
 
-const response =await checkMistral();
+const providers = [
+    {
+        name: 'Mistral',
+        url: 'https://api.mistral.ai/v1/chat/completions',
+        key: process.env.MISTRAL_API_KEY,
+        model: 'mistral-small-latest'
+    },
+    {
+        name: 'Groq',
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        key: process.env.GROQ_API_KEY,
+        model: 'llama-3.3-70b-versatile'
+    },
+    {
+        name: 'HuggingFace',
+        url: 'https://router.huggingface.co/v1/chat/completions',
+        key: process.env.HUGGINGFACE_API_KEY,
+        model: 'meta-llama/Llama-3.1-8B-Instruct'
+    },
+];
 
-console.log(
-  "provider: '" + response.provider +
-  "', status: '" + response.status +
-  "', latency: " + response.latency +
-  (response.error != undefined ? ", error: '" + response.error + "'" : '')
-);
+
+
+const results = await Promise.all([
+    ...providers.map(p => checkProvider(p)),
+    checkPinecone()
+]) 
+
+displayResult(results);
+
+async function checkPinecone() {
+    const start = Date.now();
+
+    const response = await fetch('https://api.pinecone.io/indexes', {
+        headers: {
+            'Api-Key': `${process.env.PINECONE_API_KEY}`,
+            'X-Pinecone-API-Version': '2024-07'
+        }
+    })
+        const latency = Date.now() - start;
+
+    return {
+        provider: 'Pinecone',
+        status: response.status == 200 ? 'OK' : 'ERROR',
+        latency : latency,
+        results: '',
+        error: response.ok ? undefined : response.statusText
+    }
+}
+
+
+
+function displayResult(result) {
+    for (const r of result) {
+        console.log(
+            (r.error != undefined ? '❌ ' : '✅ ') +
+
+            r.provider.padEnd(20) + r.latency + 'ms ->' + r.results
+        )
+    }
+
+}
+
+async function checkProvider(provider) {
+    const start = Date.now();
+
+    try {
+        const response = await fetch(provider.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${provider.key}`
+            },
+            body: JSON.stringify({
+                model: provider.model,
+                messages: [{ role: 'user', content: PROMPT }],
+                temperature: 0.7
+            })
+        });
+    const data = await response.json();
+
+        const latency = Date.now() - start;
+        return {
+            provider: provider.name,
+            status: response.status == 200 ? 'OK' : 'ERROR',
+            results : data.choices[0].message.content,
+            latency: latency,
+            error: response.ok ? undefined : response.statusText
+        };
+    } catch (err) {
+        return {
+            provider: provider.name,
+            latency: Date.now() - start,
+            error: err.message
+        };
+    }
+}
 
 
 
@@ -42,14 +131,15 @@ async function checkMistral() {
     const data = await response.json();
     const latency = Date.now() - start; // temps total en ms
 
-  //  console.log(response);
+    //  console.log(response);
 
     return {
         provider: provider.name,
-        status : response.status == 200 ? 'OK' : 'ERROR',
-        latency : latency,
-        error : response.ok ? undefined : response.statusText           
+        status: response.status == 200 ? 'OK' : 'ERROR',
+        latency: latency,
+        error: response.ok ? undefined : response.statusText
     };
+
 }
 
 
