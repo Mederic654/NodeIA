@@ -6,6 +6,52 @@ console.log("MISTRAL_API_KEY présente ? :", !!process.env.MISTRAL_API_KEY);
 console.log("GROQ_API_KEY ? :", !!process.env.GROQ_API_KEY);
 console.log("HF_API_KEY ? :", !!process.env.HUGGINGFACE_API_KEY);
 
+const response =await checkMistral();
+
+console.log(
+  "provider: '" + response.provider +
+  "', status: '" + response.status +
+  "', latency: " + response.latency +
+  (response.error != undefined ? ", error: '" + response.error + "'" : '')
+);
+
+
+
+async function checkMistral() {
+
+    const provider =
+    {
+        name: 'Mistral',
+        url: 'https://api.mistral.ai/v1/chat/completions',
+        key: process.env.MISTRAL_API_KEY,
+        model: 'mistral-small-latest'
+    }
+    const start = Date.now(); // on démarre le chrono
+    const response = await fetch(provider.url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${provider.key}`
+        },
+        body: JSON.stringify({
+            model: provider.model,
+            messages: [{ role: 'user', content: PROMPT }],
+            temperature: 0.7
+        })
+    });
+    const data = await response.json();
+    const latency = Date.now() - start; // temps total en ms
+
+  //  console.log(response);
+
+    return {
+        provider: provider.name,
+        status : response.status == 200 ? 'OK' : 'ERROR',
+        latency : latency,
+        error : response.ok ? undefined : response.statusText           
+    };
+}
+
 
 /*
 const providers = [
