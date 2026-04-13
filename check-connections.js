@@ -27,31 +27,22 @@ const providers = [
   }
 ];
 
-/*
-const response =await checkMistral();
 
-console.log(
-  "provider: '" + response.provider +
-  "', status: '" + response.status +
-  "', latency: " + response.latency +
-  (response.error != undefined ? ", error: '" + response.error + "'" : '')
-);
-*/
 
 const results = await Promise.all(
   providers.map(p => checkProvider(p))
 );
 
+displayResult(results);
 
-for (const r of results) {
-    console.log(
-        "provider: '" + r.provider +
-        "', status: '" + r.status +
-        "', latency: " + r.latency +
-        (r.error != undefined ? ", error: '" + r.error + "'" : '')
-    );
+function displayResult(result){
+    for (const r of result) {
+        console.log(
+            (r.error != undefined ? '❌ ': '✅ ') +
+            r.provider.padEnd(20) + r.latency + 'ms'
+        )
+    }
 }
-
 
 async function checkProvider(provider) {
     const start = Date.now();
