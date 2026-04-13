@@ -6,6 +6,28 @@ console.log("MISTRAL_API_KEY présente ? :", !!process.env.MISTRAL_API_KEY);
 console.log("GROQ_API_KEY ? :", !!process.env.GROQ_API_KEY);
 console.log("HF_API_KEY ? :", !!process.env.HUGGINGFACE_API_KEY);
 
+const providers = [
+  {
+    name: 'Mistral',
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    key: process.env.MISTRAL_API_KEY,
+    model: 'mistral-small-latest'
+  },
+  {
+    name: 'Groq',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    key: process.env.GROQ_API_KEY,
+    model: 'llama-3.3-70b-versatile'
+  },
+  {
+    name: 'HuggingFace',
+    url: 'https://router.huggingface.co/v1/chat/completions',
+    key : process.env.HUGGINGFACE_API_KEY,
+    model : 'meta-llama/Llama-3.1-8B-Instruct'
+  }
+];
+
+/*
 const response =await checkMistral();
 
 console.log(
@@ -14,6 +36,55 @@ console.log(
   "', latency: " + response.latency +
   (response.error != undefined ? ", error: '" + response.error + "'" : '')
 );
+*/
+
+const results = await Promise.all(
+  providers.map(p => checkProvider(p))
+);
+
+
+for (const r of results) {
+    console.log(
+        "provider: '" + r.provider +
+        "', status: '" + r.status +
+        "', latency: " + r.latency +
+        (r.error != undefined ? ", error: '" + r.error + "'" : '')
+    );
+}
+
+
+async function checkProvider(provider) {
+    const start = Date.now();
+
+    try {
+        const response = await fetch(provider.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${provider.key}`
+            },
+            body: JSON.stringify({
+                model: provider.model,
+                messages: [{ role: 'user', content: PROMPT }],
+                temperature: 0.7
+            })
+        });
+
+        const latency = Date.now() - start;
+        return {
+            provider: provider.name,
+            status: response.status == 200 ? 'OK' : 'ERROR',
+            latency: latency,
+            error: response.ok ? undefined : response.statusText
+        };
+    } catch (err) {
+        return {
+            provider: provider.name,
+            latency: Date.now() - start,
+            error: err.message
+        };
+    }
+}
 
 
 
@@ -50,6 +121,7 @@ async function checkMistral() {
         latency : latency,
         error : response.ok ? undefined : response.statusText           
     };
+    
 }
 
 
